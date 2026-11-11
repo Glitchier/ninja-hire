@@ -1,6 +1,5 @@
 import express from "express";
 import cors from "cors";
-import { success } from "zod";
 
 const app = express();
 
