@@ -99,8 +99,9 @@ function JobDetailContent() {
   });
 
   const job = jobData?.data;
+  const isJobOwner = profile?.role === "recruiter" && !!job && job.recruiter_id === profile.id;
 
-  // 2. Fetch Applications (Only enabled if the user is a recruiter)
+  // 2. Fetch Applications (Only enabled if the user is the recruiter who owns this job)
   const {
     data: appsData,
     isLoading: appsLoading,
@@ -113,7 +114,7 @@ function JobDetailContent() {
       const qs = stageFilter ? `?stage=${stageFilter}` : "";
       return apiFetch<ApplicationsApiResponse>(`/jobs/${jobId}/applications${qs}`);
     },
-    enabled: !!jobId && profile?.role === "recruiter",
+    enabled: !!jobId && isJobOwner,
   });
 
   const applications = appsData?.data || [];
@@ -345,7 +346,14 @@ function JobDetailContent() {
                   {job.location || "Remote"}
                 </span>
                 <span>•</span>
-                <span>Posted by {job.profiles?.full_name || "Recruiter"}</span>
+                <span>
+                  Posted by {isJobOwner ? "you" : job.profiles?.full_name || "Recruiter"}
+                </span>
+                {isJobOwner && (
+                  <Badge variant="outline" className="ml-1 border-primary/40 text-primary bg-primary/5 text-xs font-normal">
+                    Your Post
+                  </Badge>
+                )}
               </CardDescription>
             </div>
 
@@ -455,8 +463,9 @@ function JobDetailContent() {
 
       {/* =================================================================== */}
       {/* RECRUITER SECTION: APPLICANT PIPELINE & STAGE MANAGEMENT           */}
+      {/* (Only visible to the specific recruiter who posted this job)         */}
       {/* =================================================================== */}
-      {profile?.role === "recruiter" && (
+      {isJobOwner && (
         <div className="space-y-4">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
             <div>

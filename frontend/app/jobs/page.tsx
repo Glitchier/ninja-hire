@@ -24,6 +24,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
   DialogContent,
@@ -77,6 +78,10 @@ function JobsListContent() {
   const initialSearch = searchParams.get("search") || "";
   const initialStatus = searchParams.get("status") || "open";
   const initialPage = Number(searchParams.get("page") || 1);
+  const initialTab = (searchParams.get("tab") as "all" | "mine") || "all";
+
+  // Active tab state for recruiters: "all" (All Jobs) vs "mine" (Your Posts)
+  const [activeTab, setActiveTab] = useState<"all" | "mine">(initialTab);
 
   // Search input state (immediate for typing responsiveness)
   const [searchInput, setSearchInput] = useState(initialSearch);
@@ -99,18 +104,20 @@ function JobsListContent() {
 
   // Helper to synchronize query params with URL without full page reload
   const updateUrlParams = useCallback(
-    (search: string, status: string, pageNum: number) => {
+    (search: string, status: string, pageNum: number, tabVal?: string) => {
       const params = new URLSearchParams();
       if (search) params.set("search", search);
       if (status && status !== "open") params.set("status", status);
       if (pageNum > 1) params.set("page", pageNum.toString());
+      const currentTab = tabVal !== undefined ? tabVal : activeTab;
+      if (currentTab === "mine") params.set("tab", "mine");
 
       const queryString = params.toString();
       router.replace(queryString ? `/jobs?${queryString}` : "/jobs", {
         scroll: false,
       });
     },
-    [router],
+    [router, activeTab],
   );
 
   // Hand-written debounce closure (Part 3.6):
@@ -139,11 +146,18 @@ function JobsListContent() {
   }
 
   // TanStack Query: Fetch Jobs with automatic cancellation of stale in-flight requests via signal
+  const isMineFilter = profile?.role === "recruiter" && activeTab === "mine";
   const { data, isLoading, isError, error, refetch } =
     useQuery<JobsApiResponse>({
       queryKey: [
         "jobs",
-        { search: debouncedSearch, status: statusFilter, page },
+        {
+          search: debouncedSearch,
+          status: statusFilter,
+          page,
+          tab: profile?.role === "recruiter" ? activeTab : "all",
+          recruiterId: isMineFilter ? profile?.id : undefined,
+        },
       ],
       queryFn: ({ signal }) => {
         const params = new URLSearchParams({
@@ -153,6 +167,9 @@ function JobsListContent() {
         });
         if (debouncedSearch) {
           params.set("search", debouncedSearch);
+        }
+        if (isMineFilter && profile?.id) {
+          params.set("recruiter_id", profile.id);
         }
         return apiFetch<JobsApiResponse>(`/jobs?${params.toString()}`, {
           signal,
@@ -301,6 +318,25 @@ function JobsListContent() {
         )}
       </div>
 
+      {/* RECRUITER TABS: ALL JOBS VS YOUR POSTS */}
+      {profile?.role === "recruiter" && (
+        <Tabs
+          value={activeTab}
+          onValueChange={(val) => {
+            const nextTab = val as "all" | "mine";
+            setActiveTab(nextTab);
+            setPage(1);
+            updateUrlParams(debouncedSearch, statusFilter, 1, nextTab);
+          }}
+          className="w-full sm:w-auto"
+        >
+          <TabsList>
+            <TabsTrigger value="all">All Jobs</TabsTrigger>
+            <TabsTrigger value="mine">Your Posts</TabsTrigger>
+          </TabsList>
+        </Tabs>
+      )}
+
       {/* FILTER & SEARCH BAR */}
       <div className="flex flex-col sm:flex-row gap-4 items-stretch sm:items-center">
         <div className="relative flex-1">
@@ -373,12 +409,29 @@ function JobsListContent() {
         <Card className="p-12 text-center border-dashed">
           <div className="flex flex-col items-center justify-center space-y-2">
             <IconBriefcase className="size-10 text-muted-foreground stroke-1" />
-            <h3 className="text-lg font-semibold">No job postings found</h3>
+            <h3 className="text-lg font-semibold">
+              {activeTab === "mine"
+                ? "You haven't posted any jobs yet"
+                : "No job postings found"}
+            </h3>
             <p className="text-muted-foreground text-sm max-w-sm">
-              {debouncedSearch
-                ? `No results match your search "${debouncedSearch}". Try different keywords.`
-                : `There are currently no jobs listed with status '${statusFilter}'.`}
+              {activeTab === "mine"
+                ? "Click 'Post New Job' above to publish your first open role."
+                : debouncedSearch
+                  ? `No results match your search "${debouncedSearch}". Try different keywords.`
+                  : `There are currently no jobs listed with status '${statusFilter}'.`}
             </p>
+            {activeTab === "mine" && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-3 gap-1.5"
+                onClick={() => setIsCreateOpen(true)}
+              >
+                <IconPlus className="size-4" />
+                Post a Job
+              </Button>
+            )}
           </div>
         </Card>
       )}
@@ -386,49 +439,67 @@ function JobsListContent() {
       {/* 🟢 SUCCESS STATE: JOB CARDS */}
       {!isLoading && !isError && jobs.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {jobs.map((job) => (
-            <Card
-              key={job.id}
-              className="flex flex-col justify-between hover:border-foreground/20 transition-colors"
-            >
-              <CardHeader className="space-y-1">
-                <div className="flex items-start justify-between gap-2">
-                  <CardTitle className="text-base font-semibold line-clamp-1">
-                    {job.title}
-                  </CardTitle>
-                  <Badge
-                    variant={
-                      job.status === "open"
-                        ? "default"
-                        : job.status === "closed"
-                          ? "secondary"
-                          : "outline"
-                    }
-                  >
-                    {job.status}
-                  </Badge>
-                </div>
-                <CardDescription className="flex items-center gap-1.5 text-xs">
-                  <IconMapPin className="size-3.5 text-muted-foreground" />
-                  {job.location || "Remote"}
-                </CardDescription>
-              </CardHeader>
+          {jobs.map((job) => {
+            const isOwnJob =
+              profile?.role === "recruiter" && profile?.id === job.recruiter_id;
+            return (
+              <Card
+                key={job.id}
+                className="flex flex-col justify-between hover:border-foreground/20 transition-colors"
+              >
+                <CardHeader className="space-y-1.5">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="space-y-1 flex-1 min-w-0">
+                      <CardTitle className="text-base font-semibold line-clamp-1">
+                        {job.title}
+                      </CardTitle>
+                      {isOwnJob && (
+                        <Badge
+                          variant="outline"
+                          className="border-primary/40 text-primary bg-primary/5 text-[11px] font-medium"
+                        >
+                          Your Post
+                        </Badge>
+                      )}
+                    </div>
+                    <Badge
+                      variant={
+                        job.status === "open"
+                          ? "default"
+                          : job.status === "closed"
+                            ? "secondary"
+                            : "outline"
+                      }
+                    >
+                      {job.status}
+                    </Badge>
+                  </div>
+                  <CardDescription className="flex items-center gap-1.5 text-xs">
+                    <IconMapPin className="size-3.5 text-muted-foreground" />
+                    <span>{job.location || "Remote"}</span>
+                    <span>•</span>
+                    <span>
+                      Posted by {isOwnJob ? "you" : job.profiles?.full_name || "Recruiter"}
+                    </span>
+                  </CardDescription>
+                </CardHeader>
 
-              <CardContent>
-                <p className="text-sm text-muted-foreground line-clamp-3 leading-relaxed">
-                  {job.description}
-                </p>
-              </CardContent>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground line-clamp-3 leading-relaxed">
+                    {job.description}
+                  </p>
+                </CardContent>
 
-              <CardFooter className="pt-2">
-                <Link href={`/jobs/${job.id}`} className="w-full">
-                  <Button variant="outline" className="w-full text-sm">
-                    View Details & Applications
-                  </Button>
-                </Link>
-              </CardFooter>
-            </Card>
-          ))}
+                <CardFooter className="pt-2">
+                  <Link href={`/jobs/${job.id}`} className="w-full">
+                    <Button variant="outline" className="w-full text-sm">
+                      {isOwnJob ? "Manage Job & Applicants" : "View Job Details"}
+                    </Button>
+                  </Link>
+                </CardFooter>
+              </Card>
+            );
+          })}
         </div>
       )}
 

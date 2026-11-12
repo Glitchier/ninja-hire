@@ -10,8 +10,9 @@ export const createJobSchema = z.object({
 export const getJobsQuerySchema = z.object({
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().min(1).max(100).default(10),
-  status: z.enum(["open", "closed", "draft"]).optional(),
+  status: z.enum(["open", "closed", "draft", "all"]).optional(),
   search: z.string().optional(),
+  recruiter_id: z.string().uuid().optional(),
 });
 
 export const getApplicationsQuerySchema = z.object({

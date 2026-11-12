@@ -60,7 +60,7 @@ router.get(
   validate(getJobsQuerySchema, "query"),
   async (req, res, next) => {
     try {
-      const { page, limit, status, search } = req.query as any;
+      const { page, limit, status, search, recruiter_id } = req.query as any;
       const offset = (page - 1) * limit;
 
       let query = supabaseAdmin
@@ -69,10 +69,15 @@ router.get(
           count: "exact",
         });
 
+      // Filter by recruiter if provided
+      if (recruiter_id) {
+        query = query.eq("recruiter_id", recruiter_id);
+      }
+
       // Filter by status if provided
-      if (status) {
+      if (status && status !== "all") {
         query = query.eq("status", status);
-      } else {
+      } else if (!status) {
         // By default, public users only see 'open' jobs
         query = query.eq("status", "open");
       }
