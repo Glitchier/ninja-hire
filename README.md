@@ -32,28 +32,34 @@ Built as a take-home assignment focusing on practical async programming, server-
 ## Setup & Running Locally
 
 ### 1. Prerequisites
+
 - Node.js (v20 or higher)
 - `npm` and `pnpm` (`npm install -g pnpm`)
 
 ### 2. Clone the repository
+
 ```bash
-git clone https://github.com/YOUR_USERNAME/ninja-hire-assignment.git
+git clone https://github.com/Glitchier/ninja-hire.git
 cd ninja-hire-assignment
 ```
 
 ### 3. Backend Setup
 
 1. Install dependencies:
+
    ```bash
    cd backend
    npm install
    ```
 
 2. Create your `.env` file from the example:
+
    ```bash
    cp .env.example .env
    ```
+
    Add your Supabase credentials to `backend/.env`:
+
    ```env
    PORT=4000
    SUPABASE_URL=https://your-project.supabase.co
@@ -67,6 +73,7 @@ cd ninja-hire-assignment
    Run the SQL file in `supabase/supabase/migrations/20261111101848_create_profiles.sql` using the Supabase CLI or paste it into your Supabase Dashboard SQL Editor and click **Run**.
 
 4. Seed the database with sample jobs and applicants:
+
    ```bash
    npm run seed
    ```
@@ -80,12 +87,14 @@ cd ninja-hire-assignment
 ### 4. Frontend Setup
 
 1. In a new terminal, go to the `frontend` folder:
+
    ```bash
    cd frontend
    pnpm install
    ```
 
 2. Create `.env.local` inside `frontend/`:
+
    ```bash
    NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
    NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key

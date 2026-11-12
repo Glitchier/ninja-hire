@@ -28,7 +28,7 @@ export async function apiFetch<T>(endpoint: string, options: RequestInit = {}): 
   });
 
   const contentType = response.headers.get("content-type") || "";
-  let data: any = null;
+  let data: unknown = null;
 
   if (contentType.includes("application/json")) {
     data = await response.json().catch(() => null);
@@ -37,7 +37,12 @@ export async function apiFetch<T>(endpoint: string, options: RequestInit = {}): 
   }
 
   if (!response.ok) {
-    const errorMessage = data?.error || data?.message || `Request failed with status ${response.status}`;
+    const errorObj = typeof data === "object" && data !== null ? (data as Record<string, unknown>) : null;
+    const errorMessage =
+      (typeof errorObj?.error === "string" && errorObj.error) ||
+      (typeof errorObj?.message === "string" && errorObj.message) ||
+      (typeof data === "string" && data) ||
+      `Request failed with status ${response.status}`;
     throw new Error(errorMessage);
   }
 

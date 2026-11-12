@@ -21,7 +21,6 @@ import {
   IconFileSpreadsheet,
   IconUpload,
   IconArrowLeft,
-  IconCheck,
   IconFileText,
   IconUsers,
   IconMapPin,
@@ -85,6 +84,7 @@ function JobDetailContent() {
   // Candidate apply file state
   const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [applyValidationError, setApplyValidationError] = useState<string | null>(null);
+  const [openingResume, setOpeningResume] = useState<string | null>(null);
 
   // 1. Fetch Job Info
   const {
@@ -92,7 +92,6 @@ function JobDetailContent() {
     isLoading: jobLoading,
     isError: jobIsError,
     error: jobError,
-    refetch: refetchJob,
   } = useQuery<{ success: boolean; data: JobDetail }>({
     queryKey: ["job", jobId],
     queryFn: () => apiFetch<{ success: boolean; data: JobDetail }>(`/jobs/${jobId}`),
@@ -100,7 +99,6 @@ function JobDetailContent() {
   });
 
   const job = jobData?.data;
-  const isOwnerRecruiter = profile?.role === "recruiter" && job?.recruiter_id === profile.id;
 
   // 2. Fetch Applications (Only enabled if the user is a recruiter)
   const {
@@ -158,7 +156,7 @@ function JobDetailContent() {
           {
             ...previousData,
             data: previousData.data.map((app) =>
-              app.id === appId ? { ...app, stage: newStage as any } : app
+              app.id === appId ? { ...app, stage: newStage as Application["stage"] } : app
             ),
           }
         );
@@ -168,7 +166,7 @@ function JobDetailContent() {
     },
 
     // Step 2: If the request fails, ROLLBACK to the previous snapshot!
-    onError: (err: any, _vars, context) => {
+    onError: (err: Error, _vars, context) => {
       if (context?.previousData) {
         queryClient.setQueryData(
           ["job-applications", jobId, { stage: stageFilter }],
@@ -215,7 +213,7 @@ function JobDetailContent() {
       setApplyValidationError(null);
       queryClient.invalidateQueries({ queryKey: ["job", jobId] });
     },
-    onError: (err: any) => {
+    onError: (err: Error) => {
       setApplyValidationError(err.message || "Failed to submit application");
       toast.error(err.message || "Application failed");
     },
@@ -245,26 +243,51 @@ function JobDetailContent() {
       setSelectedAppIds([]);
       queryClient.invalidateQueries({ queryKey: ["job-applications", jobId] });
     },
-    onError: (err: any) => {
+    onError: (err: Error) => {
       toast.error(err.message || "Bulk stage update failed");
     },
   });
 
   // Helper to open private signed resume URL
   async function handleViewResume(resumePath: string) {
+    // 1. Open new window immediately in the synchronous user gesture to bypass browser popup blockers
+    const newWindow = typeof window !== "undefined" ? window.open("about:blank", "_blank") : null;
+    if (newWindow) {
+      newWindow.document.write(
+        `<!DOCTYPE html><html><head><title>Opening Resume...</title><style>body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#f9fafb;color:#374151;}</style></head><body><p>Loading secure resume preview...</p></body></html>`
+      );
+    }
+
     try {
+      setOpeningResume(resumePath);
       const { data, error } = await supabase.storage
         .from("resumes")
-        .createSignedUrl(resumePath, 60); // 60 seconds expiring link
+        .createSignedUrl(resumePath, 300); // 5 minutes expiring link
 
       if (error || !data?.signedUrl) {
+        if (newWindow && !newWindow.closed) newWindow.close();
         toast.error("Could not generate signed URL for resume.");
         return;
       }
 
-      window.open(data.signedUrl, "_blank");
-    } catch (err: any) {
-      toast.error(err.message || "Failed to open resume");
+      if (newWindow && !newWindow.closed) {
+        newWindow.location.href = data.signedUrl;
+      } else {
+        // Fallback: programmatic anchor click
+        const a = document.createElement("a");
+        a.href = data.signedUrl;
+        a.target = "_blank";
+        a.rel = "noopener noreferrer";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      }
+    } catch (err: unknown) {
+      if (newWindow && !newWindow.closed) newWindow.close();
+      const message = err instanceof Error ? err.message : "Failed to open resume";
+      toast.error(message);
+    } finally {
+      setOpeningResume(null);
     }
   }
 
@@ -466,8 +489,9 @@ function JobDetailContent() {
                     a.click();
                     a.remove();
                     toast.success("CSV export downloaded successfully!");
-                  } catch (err: any) {
-                    toast.error(err.message || "Failed to export CSV");
+                  } catch (err: unknown) {
+                    const message = err instanceof Error ? err.message : "Failed to export CSV";
+                    toast.error(message);
                   }
                 }}
               >
@@ -610,10 +634,11 @@ function JobDetailContent() {
                             variant="ghost"
                             size="xs"
                             className="gap-1 text-xs"
+                            disabled={openingResume === app.resume_url}
                             onClick={() => handleViewResume(app.resume_url)}
                           >
                             <IconFileText className="size-3.5" />
-                            View Resume
+                            {openingResume === app.resume_url ? "Opening..." : "View Resume"}
                           </Button>
                         ) : (
                           <span className="text-xs text-muted-foreground">None</span>

@@ -2,13 +2,13 @@
  * Hand-written Debounce function holding timeout state in its closure.
  * Written by hand without lodash as required by Part 3.6.
  */
-export function debounce<T extends (...args: any[]) => void>(
-  func: T,
+export function debounce<Args extends unknown[]>(
+  func: (...args: Args) => void,
   delayMs: number
-): { (...args: Parameters<T>): void; cancel: () => void } {
+): { (...args: Args): void; cancel: () => void } {
   let timerId: ReturnType<typeof setTimeout> | null = null;
 
-  const debounced = function (...args: Parameters<T>) {
+  const debounced = function (...args: Args) {
     if (timerId !== null) {
       clearTimeout(timerId);
     }
