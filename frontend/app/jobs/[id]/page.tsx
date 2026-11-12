@@ -557,9 +557,16 @@ function JobDetailContent() {
               <AlertTitle>Authorization / Loading Error</AlertTitle>
               <AlertDescription className="flex items-center justify-between">
                 <span>{(appsError as Error)?.message || "Could not fetch applicants."}</span>
-                <Button variant="outline" size="sm" onClick={() => refetchApps()}>
-                  Retry
-                </Button>
+                <div className="flex items-center gap-2">
+                  {(appsError as Error)?.message?.toLowerCase().includes("session") && (
+                    <Button variant="default" size="sm" onClick={() => router.push("/login")}>
+                      Sign In Again
+                    </Button>
+                  )}
+                  <Button variant="outline" size="sm" onClick={() => refetchApps()}>
+                    Retry
+                  </Button>
+                </div>
               </AlertDescription>
             </Alert>
           )}
