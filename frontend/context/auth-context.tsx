@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase/client";
+import { toast } from "sonner";
 
 export interface Profile {
   id: string;
@@ -58,6 +59,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   useEffect(() => {
+    // 0. Handle hash errors from email links (e.g. otp_expired when mail scanner pre-clicked)
+    if (typeof window !== "undefined" && window.location.hash) {
+      const hash = window.location.hash;
+      if (hash.includes("otp_expired") || hash.includes("access_denied")) {
+        toast.info("Your email link was already processed or verified. You can sign in directly!", {
+          duration: 6000,
+        });
+        window.history.replaceState(null, "", window.location.pathname);
+      }
+    }
+
     // 1. Check existing session on mount
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);

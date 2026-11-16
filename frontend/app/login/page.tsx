@@ -56,6 +56,11 @@ export default function LoginPage() {
   // 2. TanStack Query Mutation: Sign Up
   const signupMutation = useMutation({
     mutationFn: async () => {
+      const redirectUrl =
+        typeof window !== "undefined"
+          ? `${window.location.origin}/jobs`
+          : undefined;
+
       const { data, error } = await supabase.auth.signUp({
         email: signupEmail.trim(),
         password: signupPassword,
@@ -64,6 +69,7 @@ export default function LoginPage() {
             full_name: fullName.trim(),
             role: role,
           },
+          emailRedirectTo: redirectUrl,
         },
       });
 

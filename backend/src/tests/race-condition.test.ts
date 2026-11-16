@@ -53,7 +53,10 @@ describe("Part 3.5 Race Condition & Optimistic Locking", () => {
 
     // Function simulating optimistic locking query:
     // UPDATE applications SET stage = $newStage, version = version + 1 WHERE version = $expectedVersion
-    async function updateWithOptimisticLock(newStage: string, expectedVersion: number) {
+    async function updateWithOptimisticLock(
+      newStage: string,
+      expectedVersion: number,
+    ) {
       await new Promise((r) => setTimeout(r, Math.random() * 20));
 
       if (mockDatabaseRecord.version !== expectedVersion) {
@@ -62,7 +65,11 @@ describe("Part 3.5 Race Condition & Optimistic Locking", () => {
 
       mockDatabaseRecord.stage = newStage;
       mockDatabaseRecord.version += 1;
-      return { status: 200, stage: newStage, version: mockDatabaseRecord.version };
+      return {
+        status: 200,
+        stage: newStage,
+        version: mockDatabaseRecord.version,
+      };
     }
 
     // Both concurrent requests read version = 1
@@ -78,4 +85,3 @@ describe("Part 3.5 Race Condition & Optimistic Locking", () => {
     expect(statuses).toContain(409);
   });
 });
-
