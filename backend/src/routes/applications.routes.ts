@@ -20,6 +20,37 @@ const VALID_TRANSITIONS: Record<ApplicationStage, ApplicationStage[]> = {
 };
 
 /**
+ * GET /applications/my
+ * Candidate fetches all applications they have submitted across jobs
+ */
+router.get(
+  "/my",
+  requireAuth,
+  requireRole("candidate"),
+  async (req, res, next) => {
+    try {
+      const candidateId = req.user!.id;
+      const { data: applications, error } = await supabaseAdmin
+        .from("applications")
+        .select(
+          "id, job_id, stage, resume_url, created_at, updated_at, jobs!job_id(id, title, location, status)",
+        )
+        .eq("candidate_id", candidateId)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+
+      return res.json({
+        success: true,
+        data: applications || [],
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+/**
  * PATCH /applications/:id
  * Moves an application to a new stage with strict state validation & optimistic locking
  */

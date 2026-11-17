@@ -25,6 +25,8 @@ import {
   IconUsers,
   IconMapPin,
   IconAlertCircle,
+  IconCircleCheck,
+  IconX,
 } from "@tabler/icons-react";
 
 export interface JobDetail {
@@ -54,6 +56,15 @@ export interface Application {
     full_name: string;
     email: string;
   };
+}
+
+export interface CandidateApplication {
+  id: string;
+  job_id: string;
+  stage: "applied" | "screening" | "interview" | "offer" | "rejected";
+  resume_url: string;
+  created_at: string;
+  updated_at?: string;
 }
 
 interface ApplicationsApiResponse {
@@ -100,6 +111,22 @@ function JobDetailContent() {
 
   const job = jobData?.data;
   const isJobOwner = profile?.role === "recruiter" && !!job && job.recruiter_id === profile.id;
+  const isCandidate = profile?.role === "candidate";
+
+  // 1b. Fetch Candidate's Application Status (if candidate is logged in)
+  const {
+    data: myAppData,
+    isLoading: myAppLoading,
+  } = useQuery<{ success: boolean; data: CandidateApplication | null }>({
+    queryKey: ["my-application", jobId],
+    queryFn: () =>
+      apiFetch<{ success: boolean; data: CandidateApplication | null }>(
+        `/jobs/${jobId}/my-application`
+      ),
+    enabled: !!jobId && !!user && isCandidate,
+  });
+
+  const myApplication = myAppData?.data;
 
   // 2. Fetch Applications (Only enabled if the user is the recruiter who owns this job)
   const {
@@ -212,6 +239,7 @@ function JobDetailContent() {
       toast.success("Application submitted successfully! Confirmation email queued.");
       setResumeFile(null);
       setApplyValidationError(null);
+      queryClient.invalidateQueries({ queryKey: ["my-application", jobId] });
       queryClient.invalidateQueries({ queryKey: ["job", jobId] });
     },
     onError: (err: Error) => {
@@ -380,85 +408,226 @@ function JobDetailContent() {
       </Card>
 
       {/* =================================================================== */}
-      {/* CANDIDATE SECTION: APPLY WITH RESUME                                */}
+      {/* CANDIDATE SECTION: APPLICATION STATUS OR APPLY WITH RESUME         */}
       {/* =================================================================== */}
       {(!user || profile?.role === "candidate") && (
-        <Card className="border">
-          <CardHeader>
-            <CardTitle className="text-lg">Apply for this Job</CardTitle>
-            <CardDescription>
-              Submit your resume (PDF or DOCX, up to 5MB). You will receive an email confirmation upon submission.
-            </CardDescription>
-          </CardHeader>
+        <>
+          {myAppLoading ? (
+            <Card className="border p-6 space-y-4">
+              <Skeleton className="h-6 w-48" />
+              <Skeleton className="h-4 w-72" />
+              <Skeleton className="h-20 w-full" />
+            </Card>
+          ) : myApplication ? (
+            <Card className="border shadow-sm overflow-hidden">
+              <CardHeader className="bg-muted/30 pb-4">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                  <div>
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <IconCircleCheck className="size-5 text-emerald-600 dark:text-emerald-400" />
+                      Your Application Status
+                    </CardTitle>
+                    <CardDescription className="mt-1">
+                      Submitted on{" "}
+                      {new Date(myApplication.created_at).toLocaleDateString(undefined, {
+                        month: "long",
+                        day: "numeric",
+                        year: "numeric",
+                      })}
+                    </CardDescription>
+                  </div>
 
-          <CardContent className="space-y-4">
-            {!user ? (
-              <div className="p-4 bg-muted/50 rounded-lg flex flex-col sm:flex-row items-center justify-between gap-3">
-                <span className="text-sm text-muted-foreground">
-                  You must be logged in as a candidate to apply.
-                </span>
-                <Link href="/login">
-                  <Button size="sm">Sign In to Apply</Button>
-                </Link>
-              </div>
-            ) : job.status !== "open" ? (
-              <Alert>
-                <IconAlertCircle className="size-4" />
-                <AlertTitle>Applications Closed</AlertTitle>
-                <AlertDescription>
-                  This job posting is no longer accepting new candidate applications.
-                </AlertDescription>
-              </Alert>
-            ) : (
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  applyMutation.mutate();
-                }}
-                className="space-y-4"
-              >
-                {applyValidationError && (
-                  <Alert variant="destructive">
-                    <IconAlertCircle className="size-4" />
-                    <AlertTitle>Cannot Submit</AlertTitle>
-                    <AlertDescription>{applyValidationError}</AlertDescription>
-                  </Alert>
+                  <Badge
+                    variant={
+                      myApplication.stage === "offer"
+                        ? "default"
+                        : myApplication.stage === "rejected"
+                        ? "destructive"
+                        : myApplication.stage === "interview"
+                        ? "secondary"
+                        : "outline"
+                    }
+                    className="capitalize text-xs font-semibold px-2.5 py-0.5"
+                  >
+                    {myApplication.stage === "offer" ? "🎉 Offer Extended" : myApplication.stage}
+                  </Badge>
+                </div>
+              </CardHeader>
+
+              <CardContent className="pt-6 space-y-6">
+                {/* Visual Pipeline Progression Tracker */}
+                {myApplication.stage === "rejected" ? (
+                  <div className="p-4 rounded-lg border border-destructive/20 bg-destructive/10 space-y-1.5">
+                    <div className="flex items-center gap-2 text-destructive font-medium">
+                      <IconX className="size-4" />
+                      <span>Application Not Selected</span>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Thank you for taking the time to apply. The hiring team has reviewed your profile and decided to pursue other applicants for this role.
+                    </p>
+                  </div>
+                ) : (
+                  <div>
+                    <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-4">
+                      Application Stage Timeline
+                    </h4>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      {[
+                        { key: "applied", label: "1. Applied" },
+                        { key: "screening", label: "2. Screening" },
+                        { key: "interview", label: "3. Interview" },
+                        { key: "offer", label: "4. Offer" },
+                      ].map((step, idx) => {
+                        const stagesOrder = ["applied", "screening", "interview", "offer"];
+                        const currentIdx = stagesOrder.indexOf(myApplication.stage);
+                        const isCompleted = idx < currentIdx;
+                        const isCurrent = idx === currentIdx;
+
+                        return (
+                          <div
+                            key={step.key}
+                            className={`p-3 rounded-lg border text-center transition-all ${
+                              isCurrent
+                                ? "border-primary bg-primary/10 shadow-sm font-semibold"
+                                : isCompleted
+                                ? "border-emerald-500/40 bg-emerald-500/5 text-foreground"
+                                : "border-border/60 bg-muted/20 text-muted-foreground"
+                            }`}
+                          >
+                            <div className="flex items-center justify-center mb-1.5">
+                              {isCompleted ? (
+                                <span className="size-5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xs">
+                                  ✓
+                                </span>
+                              ) : isCurrent ? (
+                                <span className="size-5 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs animate-pulse">
+                                  ●
+                                </span>
+                              ) : (
+                                <span className="size-5 rounded-full border border-muted-foreground/30 flex items-center justify-center text-xs text-muted-foreground">
+                                  {idx + 1}
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-xs block">{step.label}</span>
+                            <span className="text-[10px] text-muted-foreground block mt-0.5">
+                              {isCompleted ? "Completed" : isCurrent ? "In Progress" : "Pending"}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
                 )}
 
-                <div className="space-y-2">
-                  <label htmlFor="resume-upload" className="text-sm font-medium">
-                    Resume / CV File
-                  </label>
-                  <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
-                    <input
-                      id="resume-upload"
-                      type="file"
-                      accept=".pdf,.docx,.doc,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0] || null;
-                        setResumeFile(file);
-                        setApplyValidationError(null);
-                      }}
-                      disabled={applyMutation.isPending}
-                      className="text-sm file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90 cursor-pointer"
-                      required
-                    />
-
-                    {/* SUBMIT BUTTON WITH DISABLED STATE DURING IN-FLIGHT REQUEST */}
-                    <Button
-                      type="submit"
-                      disabled={applyMutation.isPending || !resumeFile}
-                      className="gap-1.5"
-                    >
-                      <IconUpload className="size-4" />
-                      {applyMutation.isPending ? "Submitting Application..." : "Submit Application"}
-                    </Button>
+                {/* Submitted Resume Info & Preview */}
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3.5 rounded-lg border bg-muted/30">
+                  <div className="flex items-center gap-2.5">
+                    <IconFileText className="size-5 text-muted-foreground shrink-0" />
+                    <div>
+                      <p className="text-sm font-medium">Submitted Resume</p>
+                      <p className="text-xs text-muted-foreground">
+                        Securely stored in Supabase private bucket
+                      </p>
+                    </div>
                   </div>
+
+                  {myApplication.resume_url ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5"
+                      disabled={openingResume === myApplication.resume_url}
+                      onClick={() => handleViewResume(myApplication.resume_url)}
+                    >
+                      <IconFileText className="size-4" />
+                      {openingResume === myApplication.resume_url ? "Generating Link..." : "View Resume"}
+                    </Button>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">No file available</span>
+                  )}
                 </div>
-              </form>
-            )}
-          </CardContent>
-        </Card>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card className="border">
+              <CardHeader>
+                <CardTitle className="text-lg">Apply for this Job</CardTitle>
+                <CardDescription>
+                  Submit your resume (PDF or DOCX, up to 5MB). You will receive an email confirmation upon submission.
+                </CardDescription>
+              </CardHeader>
+
+              <CardContent className="space-y-4">
+                {!user ? (
+                  <div className="p-4 bg-muted/50 rounded-lg flex flex-col sm:flex-row items-center justify-between gap-3">
+                    <span className="text-sm text-muted-foreground">
+                      You must be logged in as a candidate to apply.
+                    </span>
+                    <Link href="/login">
+                      <Button size="sm">Sign In to Apply</Button>
+                    </Link>
+                  </div>
+                ) : job.status !== "open" ? (
+                  <Alert>
+                    <IconAlertCircle className="size-4" />
+                    <AlertTitle>Applications Closed</AlertTitle>
+                    <AlertDescription>
+                      This job posting is no longer accepting new candidate applications.
+                    </AlertDescription>
+                  </Alert>
+                ) : (
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      applyMutation.mutate();
+                    }}
+                    className="space-y-4"
+                  >
+                    {applyValidationError && (
+                      <Alert variant="destructive">
+                        <IconAlertCircle className="size-4" />
+                        <AlertTitle>Cannot Submit</AlertTitle>
+                        <AlertDescription>{applyValidationError}</AlertDescription>
+                      </Alert>
+                    )}
+
+                    <div className="space-y-2">
+                      <label htmlFor="resume-upload" className="text-sm font-medium">
+                        Resume / CV File
+                      </label>
+                      <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
+                        <input
+                          id="resume-upload"
+                          type="file"
+                          accept=".pdf,.docx,.doc,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0] || null;
+                            setResumeFile(file);
+                            setApplyValidationError(null);
+                          }}
+                          disabled={applyMutation.isPending}
+                          className="text-sm file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90 cursor-pointer"
+                          required
+                        />
+
+                        {/* SUBMIT BUTTON WITH DISABLED STATE DURING IN-FLIGHT REQUEST */}
+                        <Button
+                          type="submit"
+                          disabled={applyMutation.isPending || !resumeFile}
+                          className="gap-1.5"
+                        >
+                          <IconUpload className="size-4" />
+                          {applyMutation.isPending ? "Submitting Application..." : "Submit Application"}
+                        </Button>
+                      </div>
+                    </div>
+                  </form>
+                )}
+              </CardContent>
+            </Card>
+          )}
+        </>
       )}
 
       {/* =================================================================== */}

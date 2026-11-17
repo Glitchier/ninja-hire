@@ -177,6 +177,31 @@ function JobsListContent() {
       },
     });
 
+  // Candidate applied jobs check
+  const isCandidate = profile?.role === "candidate";
+  const { data: myAppsData } = useQuery<{
+    success: boolean;
+    data: Array<{ job_id: string; stage: string }>;
+  }>({
+    queryKey: ["my-applications"],
+    queryFn: () =>
+      apiFetch<{
+        success: boolean;
+        data: Array<{ job_id: string; stage: string }>;
+      }>("/applications/my"),
+    enabled: isCandidate,
+  });
+
+  const appliedJobsMap = useMemo(() => {
+    const map = new Map<string, string>();
+    if (myAppsData?.data) {
+      for (const app of myAppsData.data) {
+        map.set(app.job_id, app.stage);
+      }
+    }
+    return map;
+  }, [myAppsData]);
+
   // TanStack Query Mutation: Create Job (Recruiter only)
   const createJobMutation = useMutation({
     mutationFn: async () => {
@@ -442,6 +467,9 @@ function JobsListContent() {
           {jobs.map((job) => {
             const isOwnJob =
               profile?.role === "recruiter" && profile?.id === job.recruiter_id;
+            const candidateStage = isCandidate ? appliedJobsMap.get(job.id) : undefined;
+            const hasApplied = Boolean(candidateStage);
+
             return (
               <Card
                 key={job.id}
@@ -453,14 +481,24 @@ function JobsListContent() {
                       <CardTitle className="text-base font-semibold line-clamp-1">
                         {job.title}
                       </CardTitle>
-                      {isOwnJob && (
-                        <Badge
-                          variant="outline"
-                          className="border-primary/40 text-primary bg-primary/5 text-[11px] font-medium"
-                        >
-                          Your Post
-                        </Badge>
-                      )}
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {isOwnJob && (
+                          <Badge
+                            variant="outline"
+                            className="border-primary/40 text-primary bg-primary/5 text-[11px] font-medium"
+                          >
+                            Your Post
+                          </Badge>
+                        )}
+                        {hasApplied && (
+                          <Badge
+                            variant="outline"
+                            className="border-emerald-500/40 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 text-[11px] font-medium"
+                          >
+                            ✓ Applied ({candidateStage})
+                          </Badge>
+                        )}
+                      </div>
                     </div>
                     <Badge
                       variant={
@@ -493,7 +531,11 @@ function JobsListContent() {
                 <CardFooter className="pt-2">
                   <Link href={`/jobs/${job.id}`} className="w-full">
                     <Button variant="outline" className="w-full text-sm">
-                      {isOwnJob ? "Manage Job & Applicants" : "View Job Details"}
+                      {isOwnJob
+                        ? "Manage Job & Applicants"
+                        : hasApplied
+                        ? "View Application Status"
+                        : "View Job Details"}
                     </Button>
                   </Link>
                 </CardFooter>

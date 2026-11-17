@@ -304,4 +304,133 @@ describe("ATS Backend Test Suite", () => {
     expect(results[4]?.status).toBe("fulfilled");
     expect(results[4]?.value).toBe(50);
   });
+
+  // 10. CANDIDATE APPLICATION STATUS TEST
+  it("GET /jobs/:id/my-application returns candidate application details", async () => {
+    vi.spyOn(supabaseAdmin.auth, "getUser").mockResolvedValueOnce({
+      data: {
+        user: { id: "candidate-uuid-1", email: "candidate@example.com" },
+      } as any,
+      error: null,
+    });
+
+    vi.spyOn(supabaseAdmin, "from").mockImplementation((table: string): any => {
+      if (table === "profiles") {
+        return {
+          select: () => ({
+            eq: () => ({
+              single: () =>
+                Promise.resolve({
+                  data: {
+                    id: "candidate-uuid-1",
+                    role: "candidate",
+                    full_name: "John Doe",
+                    email: "candidate@example.com",
+                  },
+                  error: null,
+                }),
+            }),
+          }),
+        };
+      }
+      if (table === "applications") {
+        return {
+          select: () => ({
+            eq: () => ({
+              eq: () => ({
+                maybeSingle: () =>
+                  Promise.resolve({
+                    data: {
+                      id: "app-123",
+                      job_id: "job-abc",
+                      stage: "screening",
+                      created_at: new Date().toISOString(),
+                      resume_url: "resumes/candidate-uuid-1/resume.pdf",
+                    },
+                    error: null,
+                  }),
+              }),
+            }),
+          }),
+        };
+      }
+      return { select: () => ({ eq: () => Promise.resolve({ data: [], error: null }) }) };
+    });
+
+    const res = await request(app)
+      .get("/jobs/job-abc/my-application")
+      .set("Authorization", "Bearer mock-candidate-token");
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data.stage).toBe("screening");
+    expect(res.body.data.id).toBe("app-123");
+
+    vi.restoreAllMocks();
+  });
+
+  // 11. CANDIDATE ALL APPLICATIONS TEST
+  it("GET /applications/my returns candidate all applications list", async () => {
+    vi.spyOn(supabaseAdmin.auth, "getUser").mockResolvedValueOnce({
+      data: {
+        user: { id: "candidate-uuid-1", email: "candidate@example.com" },
+      } as any,
+      error: null,
+    });
+
+    vi.spyOn(supabaseAdmin, "from").mockImplementation((table: string): any => {
+      if (table === "profiles") {
+        return {
+          select: () => ({
+            eq: () => ({
+              single: () =>
+                Promise.resolve({
+                  data: {
+                    id: "candidate-uuid-1",
+                    role: "candidate",
+                    full_name: "John Doe",
+                    email: "candidate@example.com",
+                  },
+                  error: null,
+                }),
+            }),
+          }),
+        };
+      }
+      if (table === "applications") {
+        return {
+          select: () => ({
+            eq: () => ({
+              order: () =>
+                Promise.resolve({
+                  data: [
+                    {
+                      id: "app-1",
+                      job_id: "job-1",
+                      stage: "applied",
+                      created_at: new Date().toISOString(),
+                      jobs: { id: "job-1", title: "Frontend Engineer" },
+                    },
+                  ],
+                  error: null,
+                }),
+            }),
+          }),
+        };
+      }
+      return { select: () => ({ eq: () => Promise.resolve({ data: [], error: null }) }) };
+    });
+
+    const res = await request(app)
+      .get("/applications/my")
+      .set("Authorization", "Bearer mock-candidate-token");
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(Array.isArray(res.body.data)).toBe(true);
+    expect(res.body.data.length).toBe(1);
+    expect(res.body.data[0].stage).toBe("applied");
+
+    vi.restoreAllMocks();
+  });
 });

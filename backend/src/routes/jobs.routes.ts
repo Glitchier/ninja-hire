@@ -221,6 +221,38 @@ router.get(
 );
 
 /**
+ * GET /jobs/:id/my-application
+ * Candidate fetches their own application status for this specific job
+ */
+router.get(
+  "/:id/my-application",
+  requireAuth,
+  requireRole("candidate"),
+  async (req, res, next) => {
+    try {
+      const { id: jobId } = req.params;
+      const candidateId = req.user!.id;
+
+      const { data: application, error } = await supabaseAdmin
+        .from("applications")
+        .select("id, job_id, stage, created_at, updated_at, resume_url")
+        .eq("job_id", jobId)
+        .eq("candidate_id", candidateId)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      return res.json({
+        success: true,
+        data: application || null,
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+/**
  * POST /jobs/:id/applications
  * Candidate applies with resume upload (PDF/DOCX, <= 5MB)
  */
