@@ -7,7 +7,13 @@ import { supabase } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -129,7 +135,9 @@ export default function LoginPage() {
     <div className="flex min-h-[calc(100vh-3.5rem)] items-center justify-center p-4">
       <Card className="w-full max-w-md shadow-lg border">
         <CardHeader className="text-center space-y-1">
-          <CardTitle className="text-2xl font-bold tracking-tight">Ninja ATS</CardTitle>
+          <CardTitle className="text-2xl font-bold tracking-tight">
+            Ninja ATS
+          </CardTitle>
           <CardDescription>Mini Applicant Tracking System</CardDescription>
         </CardHeader>
 
@@ -222,7 +230,9 @@ export default function LoginPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label htmlFor="signup-password">Password (min 6 chars)</Label>
+                  <Label htmlFor="signup-password">
+                    Password (min 6 chars)
+                  </Label>
                   <Input
                     id="signup-password"
                     type="password"
@@ -239,18 +249,26 @@ export default function LoginPage() {
                   <Label>I want to sign up as:</Label>
                   <RadioGroup
                     value={role}
-                    onValueChange={(val: "candidate" | "recruiter") => setRole(val)}
+                    onValueChange={(val: "candidate" | "recruiter") =>
+                      setRole(val)
+                    }
                     className="flex gap-4 pt-1"
                   >
                     <div className="flex items-center space-x-2">
                       <RadioGroupItem value="candidate" id="role-candidate" />
-                      <Label htmlFor="role-candidate" className="cursor-pointer font-normal">
+                      <Label
+                        htmlFor="role-candidate"
+                        className="cursor-pointer font-normal"
+                      >
                         Candidate
                       </Label>
                     </div>
                     <div className="flex items-center space-x-2">
                       <RadioGroupItem value="recruiter" id="role-recruiter" />
-                      <Label htmlFor="role-recruiter" className="cursor-pointer font-normal">
+                      <Label
+                        htmlFor="role-recruiter"
+                        className="cursor-pointer font-normal"
+                      >
                         Recruiter
                       </Label>
                     </div>
@@ -262,7 +280,9 @@ export default function LoginPage() {
                   className="w-full mt-2"
                   disabled={signupMutation.isPending}
                 >
-                  {signupMutation.isPending ? "Creating Account..." : "Create Account"}
+                  {signupMutation.isPending
+                    ? "Creating Account..."
+                    : "Create Account"}
                 </Button>
               </form>
             </TabsContent>
@@ -272,4 +292,3 @@ export default function LoginPage() {
     </div>
   );
 }
-

@@ -1,29 +1,39 @@
-/**
- * Hand-written Debounce function holding timeout state in its closure.
- * Written by hand without lodash as required by Part 3.6.
- */
-export function debounce<Args extends unknown[]>(
-  func: (...args: Args) => void,
-  delayMs: number
-): { (...args: Args): void; cancel: () => void } {
-  let timerId: ReturnType<typeof setTimeout> | null = null;
+import { useEffect, useState } from "react";
 
-  const debounced = function (...args: Args) {
-    if (timerId !== null) {
-      clearTimeout(timerId);
+function debounce<Args extends unknown[]>(
+  fn: (...args: Args) => void,
+  delayMs: number,
+): { (...args: Args): void; cancel: () => void } {
+  let timeId: ReturnType<typeof setTimeout> | null = null;
+
+  const debounced = (...args: Args) => {
+    if (timeId !== null) {
+      clearTimeout(timeId);
     }
-    timerId = setTimeout(() => {
-      func(...args);
-      timerId = null;
+    timeId = setTimeout(() => {
+      fn(...args);
+      timeId = null;
     }, delayMs);
   };
 
   debounced.cancel = () => {
-    if (timerId !== null) {
-      clearTimeout(timerId);
-      timerId = null;
+    if (timeId !== null) {
+      clearTimeout(timeId);
+      timeId = null;
     }
   };
-
   return debounced;
+}
+
+export default debounce;
+
+// Debounce modern (using useEffect)
+
+export function useDebounce<T>(value: T, delay = 300) {
+  const [debounce, setDebounce] = useState(value);
+  useEffect(() => {
+    const id = setTimeout(() => setDebounce(value), delay);
+    return clearTimeout(id);
+  }, [value, delay]);
+  return debounce;
 }
