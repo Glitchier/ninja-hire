@@ -1,6 +1,6 @@
 // import { useEffect, useState } from "react";
 
-function debounce<Args extends unknown[]>(
+export function debounce<Args extends unknown[]>(
   fn: (...args: Args) => void,
   delayMs: number,
 ): { (...args: Args): void; cancel: () => void } {
@@ -24,8 +24,6 @@ function debounce<Args extends unknown[]>(
   };
   return debounced;
 }
-
-export default debounce;
 
 // Debounce modern (using useEffect)
 
