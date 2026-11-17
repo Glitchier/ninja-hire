@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+// import { useEffect, useState } from "react";
 
 function debounce<Args extends unknown[]>(
   fn: (...args: Args) => void,
@@ -29,11 +29,11 @@ export default debounce;
 
 // Debounce modern (using useEffect)
 
-export function useDebounce<T>(value: T, delay = 300) {
-  const [debounce, setDebounce] = useState(value);
-  useEffect(() => {
-    const id = setTimeout(() => setDebounce(value), delay);
-    return clearTimeout(id);
-  }, [value, delay]);
-  return debounce;
-}
+// export function useDebounce<T>(value: T, delay = 300) {
+//   const [debounce, setDebounce] = useState(value);
+//   useEffect(() => {
+//     const id = setTimeout(() => setDebounce(value), delay);
+//     return clearTimeout(id);
+//   }, [value, delay]);
+//   return debounce;
+// }
